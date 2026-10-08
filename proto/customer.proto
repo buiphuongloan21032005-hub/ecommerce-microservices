@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package customer;
+
+service CustomerService {
+  rpc CreateCustomer (CreateCustomerRequest) returns (CustomerResponse);
+  rpc GetCustomer (GetCustomerRequest) returns (CustomerResponse);
+  rpc UpdateCustomer (UpdateCustomerRequest) returns (CustomerResponse);
+  rpc GetMembership (GetMembershipRequest) returns (MembershipResponse);
+  rpc CreateMembership (CreateMembershipRequest) returns (MembershipResponse);
+  rpc UpdateMembership (UpdateMembershipRequest) returns (MembershipResponse);
+  rpc Health (Empty) returns (HealthResponse);
+}
+
+message Empty {}
+
+message CreateCustomerRequest {
+  int32 uid = 1;
+  string fullname = 2;
+  int32 mid = 3;
+}
+
+message GetCustomerRequest {
+  int32 uid = 1;
+}
+
+message UpdateCustomerRequest {
+  int32 uid = 1;
+  optional string fullname = 2;
+  optional int32 mid = 3;
+}
+
+message CustomerResponse {
+  int32 uid = 1;
+  string fullname = 2;
+  int32 mid = 3;
+  MembershipResponse membership = 4;
+}
+
+message GetMembershipRequest {
+  int32 mid = 1;
+}
+
+message MembershipResponse {
+  int32 mid = 1;
+  string mname = 2;
+  int32 score = 3;
+}
+
+message HealthResponse {
+  string status = 1;
+}
+message CreateMembershipRequest { string mname = 1; int32 score = 2; }
+message UpdateMembershipRequest { int32 mid = 1; optional string mname = 2; optional int32 score = 3; }

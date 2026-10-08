@@ -1,0 +1,48 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+model Order {
+ oid Int @id @default(autoincrement())
+ uid Int
+ discount Decimal @db.Decimal(20,2)
+ subtotal Decimal @db.Decimal(20,2)
+ total Decimal @db.Decimal(20,2)
+ createdAt DateTime @default(now())
+ requestKey String @unique
+ details OrderDetail[]
+ @@index([uid,createdAt])
+}
+model OrderDetail {
+ id Int @id @default(autoincrement())
+ oid Int
+ pid Int
+ qty Int
+ unitPrice Decimal @db.Decimal(14,2)
+ order Order @relation(fields:[oid],references:[oid],onDelete:Cascade)
+ @@unique([oid,pid])
+}
+model OrderRequest {
+ key String @id
+ uid Int
+ fingerprint String
+ items Json
+ state String @default("PENDING")
+ errorCode Int?
+ errorMessage String?
+ createdAt DateTime @default(now())
+ @@index([state,createdAt])
+}
+model Outbox {
+ id String @id
+ oid Int @unique
+ payload Json
+ publishedAt DateTime?
+ attempts Int @default(0)
+ lastError String?
+ createdAt DateTime @default(now())
+ @@index([publishedAt,createdAt])
+}

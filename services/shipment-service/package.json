@@ -1,0 +1,14 @@
+{
+  "name": "shipment-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "mongodb": "6.20.0",
+    "kafkajs": "2.2.4",
+    "dotenv": "17.2.3"
+  }
+}

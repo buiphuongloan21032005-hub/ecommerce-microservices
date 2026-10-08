@@ -1,0 +1,17 @@
+
+> ecommerce-microservices@1.0.0 check
+> node scripts/check-all.cjs
+
+43 JavaScript files: syntax OK
+OK: auth.proto
+  Methods: Register, Login, GetUser, Health
+OK: customer.proto
+  Methods: CreateCustomer, GetCustomer, UpdateCustomer, GetMembership, CreateMembership, UpdateMembership, Health
+OK: product.proto
+  Methods: ListProducts, GetProduct, CreateProduct, UpdateProduct, DeleteProduct, ReserveStock, ReleaseStock, Health
+OK: order.proto
+  Methods: CreateOrder, ListOrders, GetOrder, Health
+OK: shipment.proto
+  Methods: GetShipment, GetShipmentByOrder, UpdateShipmentStatus, Health
+
+Đã nạp thành công cả 5 file proto.

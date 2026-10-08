@@ -1,0 +1,10 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> ecommerce-microservices@1.0.0 test:stock-integration
+> node tests/stock-integration.cjs
+
+PASS Mongo reserve replay
+PASS Mongo partial failure rollback
+PASS Mongo release replay
+PASS Mongo 8 concurrent reservations: 5 successes, zero overselling
+PASS Mongo cancellation tombstone

@@ -1,0 +1,3 @@
+Docker Compose v2.32.4 config --quiet: exit 0
+13 long-running services + 3 one-shot initialization services = 16 definitions.
+Docker daemon/build/up/E2E not available in authoring environment.

@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package auth;
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc GetUser (GetUserRequest) returns (UserResponse);
+  rpc Health (Empty) returns (HealthResponse);
+}
+
+message Empty {}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string fullname = 3;
+  string email = 4;
+  string phone = 5;
+}
+
+message RegisterResponse {
+  string message = 1;
+  int32 uid = 2;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string token_type = 2;
+  int32 expires_in = 3;
+}
+
+message GetUserRequest {
+  int32 uid = 1;
+}
+
+message UserResponse {
+  int32 uid = 1;
+  string username = 2;
+  string role = 3;
+}
+
+message HealthResponse {
+  string status = 1;
+}

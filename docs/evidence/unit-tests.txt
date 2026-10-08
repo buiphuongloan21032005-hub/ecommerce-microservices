@@ -1,0 +1,46 @@
+
+> ecommerce-microservices@1.0.0 test
+> node --test tests/unit.test.cjs
+
+✔ Order rejects empty items (1.125008ms)
+✔ Order rejects fractional qty (0.278483ms)
+✔ Order rejects duplicate pid (0.133177ms)
+✔ Order rejects missing request id (0.104155ms)
+✔ Order sorts items for stable idempotency (0.700909ms)
+✔ Money arithmetic avoids floating point error (1.008726ms)
+✔ Default score 10 discounts 10 currency units (0.252765ms)
+✔ Discount cannot exceed subtotal (0.168731ms)
+✔ Discount factor is configurable (0.211704ms)
+✔ Negative score rejected (0.252724ms)
+✔ Product rejects negative quantity (0.187989ms)
+✔ Product rejects negative price (0.151265ms)
+✔ Product rejects 3 decimal price (0.118165ms)
+✔ Stock rejects repeated product (0.259876ms)
+✔ Stock rejects missing reservation (0.115481ms)
+✔ Shipment rejects missing oid (0.185816ms)
+✔ Shipment validates event envelope (0.077935ms)
+✔ Shipment permits SHIPPING then DELIVERED (0.089573ms)
+✔ Shipment blocks terminal rollback (0.106257ms)
+✔ Shipment rejects unknown status (0.079338ms)
+✔ Shipment permits retry same status (0.048562ms)
+✔ Shipment denies another customer (0.14187ms)
+✔ Shipment denies customer status edits (0.077285ms)
+✔ Shipment permits staff update (0.110934ms)
+✔ Password bcrypt and JWT signature/role (895.840869ms)
+✔ Repeated reserve deducts once and keeps captured price (0.846996ms)
+✔ Partial reserve failure rolls back all deductions (0.268729ms)
+✔ Release returns quantities exactly once (0.269449ms)
+✔ Release before reserve cancels delayed reserve (0.201959ms)
+✔ Reservation cannot be reused with different payload (0.282238ms)
+✔ Order retry uses same oid, one reservation and one outbox (1.676246ms)
+✔ Order idempotency key rejects changed items (0.406973ms)
+✔ Order permanent stock failure persists FAILED, no order/outbox (0.227777ms)
+✔ Real gRPC wire preserves optional field absence and status code (44.426329ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1090.802437

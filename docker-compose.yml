@@ -1,0 +1,413 @@
+name: ecommerce-microservices
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB_NAME}
+    ports:
+    - 127.0.0.1:15433:5432
+    volumes:
+    - auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  customer-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CUSTOMER_DB_NAME}
+    ports:
+    - 127.0.0.1:15434:5432
+    volumes:
+    - customer-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ORDER_DB_NAME}
+    ports:
+    - 127.0.0.1:15435:5432
+    volumes:
+    - order-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  product-db:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_DATABASE: ${PRODUCT_DB_NAME}
+    ports:
+    - 127.0.0.1:27018:27017
+    volumes:
+    - product-data:/data/db
+    healthcheck:
+      test:
+      - CMD
+      - mongosh
+      - --quiet
+      - --eval
+      - 'quit(db.adminCommand(''ping'').ok ? 0 : 1)'
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+    command:
+    - mongod
+    - --replSet
+    - rs-product
+    - --bind_ip_all
+  shipment-db:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_DATABASE: ${SHIPMENT_DB_NAME}
+    ports:
+    - 127.0.0.1:27019:27017
+    volumes:
+    - shipment-data:/data/db
+    healthcheck:
+      test:
+      - CMD
+      - mongosh
+      - --quiet
+      - --eval
+      - 'quit(db.adminCommand(''ping'').ok ? 0 : 1)'
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:16379:6379
+  kafka:
+    image: apache/kafka:3.9.1
+    environment:
+      KAFKA_NODE_ID: '1'
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: '1'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: '0'
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+    - kafka-data:/tmp/kraft-combined-logs
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      kafka-permissions:
+        condition: service_completed_successfully
+    ports:
+    - 127.0.0.1:19092:19092
+  product-rs-init:
+    image: mongo:7.0
+    depends_on:
+      product-db:
+        condition: service_healthy
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command: 'mongosh --host product-db --quiet --eval ''try { rs.status() } catch(e) { if(e.codeName !== "NotYetInitialized") throw e; rs.initiate({_id:"rs-product",members:[{_id:0,host:"product-db:27017"}]})
+      }''; for i in $(seq 1 60); do mongosh --host product-db --quiet --eval ''quit(db.hello().isWritablePrimary ? 0 : 1)'' && exit 0; sleep 2; done; exit 1'
+    restart: 'no'
+  kafka-permissions:
+    image: alpine:3.20
+    user: 0:0
+    volumes:
+    - kafka-data:/data
+    command:
+    - sh
+    - -ec
+    - chown -R 1000:1000 /data
+    restart: 'no'
+  kafka-topic-init:
+    image: apache/kafka:3.9.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command: /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic ${KAFKA_ORDER_TOPIC:-order-created} --partitions 1 --replication-factor
+      1
+    restart: 'no'
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth-service
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUTH_GRPC_ADDRESS: auth-service:50051
+      CUSTOMER_GRPC_ADDRESS: customer-service:50052
+      PRODUCT_GRPC_ADDRESS: product-service:50053
+      ORDER_GRPC_ADDRESS: order-service:50054
+      SHIPMENT_GRPC_ADDRESS: shipment-service:50055
+      GRPC_PORT: '50051'
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@auth-db:5432/${AUTH_DB_NAME}?schema=public
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      STAFF_USERNAME: ${STAFF_USERNAME}
+      STAFF_PASSWORD: ${STAFF_PASSWORD}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - auth
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+  customer-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: customer-service
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUTH_GRPC_ADDRESS: auth-service:50051
+      CUSTOMER_GRPC_ADDRESS: customer-service:50052
+      PRODUCT_GRPC_ADDRESS: product-service:50053
+      ORDER_GRPC_ADDRESS: order-service:50054
+      SHIPMENT_GRPC_ADDRESS: shipment-service:50055
+      GRPC_PORT: '50052'
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@customer-db:5432/${CUSTOMER_DB_NAME}?schema=public
+    depends_on:
+      customer-db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - customer
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: order-service
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUTH_GRPC_ADDRESS: auth-service:50051
+      CUSTOMER_GRPC_ADDRESS: customer-service:50052
+      PRODUCT_GRPC_ADDRESS: product-service:50053
+      ORDER_GRPC_ADDRESS: order-service:50054
+      SHIPMENT_GRPC_ADDRESS: shipment-service:50055
+      GRPC_PORT: '50054'
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@order-db:5432/${ORDER_DB_NAME}?schema=public
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_ORDER_TOPIC: ${KAFKA_ORDER_TOPIC:-order-created}
+      DISCOUNT_PER_POINT: ${DISCOUNT_PER_POINT:-1}
+    depends_on:
+      order-db:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topic-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - order
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: product-service
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      GRPC_PORT: '50053'
+      MONGODB_URI: mongodb://product-db:27017?replicaSet=rs-product
+      MONGODB_DATABASE: ${PRODUCT_DB_NAME}
+    depends_on:
+      product-db:
+        condition: service_healthy
+      product-rs-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - product
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+  shipment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: shipment-service
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      GRPC_PORT: '50055'
+      MONGODB_URI: mongodb://shipment-db:27017
+      MONGODB_DATABASE: ${SHIPMENT_DB_NAME}
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_ORDER_TOPIC: ${KAFKA_ORDER_TOPIC:-order-created}
+    depends_on:
+      shipment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topic-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - shipment
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api-gateway
+    environment:
+      GRPC_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUTH_GRPC_ADDRESS: auth-service:50051
+      CUSTOMER_GRPC_ADDRESS: customer-service:50052
+      PRODUCT_GRPC_ADDRESS: product-service:50053
+      ORDER_GRPC_ADDRESS: order-service:50054
+      SHIPMENT_GRPC_ADDRESS: shipment-service:50055
+      GATEWAY_PORT: '3002'
+      REDIS_URL: redis://redis:6379
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      shipment-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - /app/scripts/health.cjs
+      - gateway
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 40s
+    stop_grace_period: 45s
+    ports:
+    - 127.0.0.1:${GATEWAY_PORT:-3002}:3002
+volumes:
+  auth-data: null
+  customer-data: null
+  order-data: null
+  product-data: null
+  shipment-data: null
+  redis-data: null
+  kafka-data: null

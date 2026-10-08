@@ -1,0 +1,35 @@
+{
+  "name": "ecommerce-microservices",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --test tests/unit.test.cjs",
+    "check:proto": "node scripts/check-protos.cjs",
+    "test:e2e": "node tests/e2e.cjs",
+    "check": "node scripts/check-all.cjs",
+    "test:stock-integration": "node tests/stock-integration.cjs",
+    "demo:setup": "node scripts/demo-phieu-cham.cjs setup",
+    "demo:cham": "node scripts/demo-phieu-cham.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@grpc/grpc-js": "1.14.5",
+    "@grpc/proto-loader": "0.8.0",
+    "decimal.js": "10.6.0",
+    "dotenv": "17.2.3",
+    "jsonwebtoken": "9.0.2",
+    "kafkajs": "2.2.4"
+  },
+  "devDependencies": {
+    "mongodb-memory-server-core": "10.2.3"
+  },
+  "private": true
+}
